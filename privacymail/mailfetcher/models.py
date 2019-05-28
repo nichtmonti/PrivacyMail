@@ -76,8 +76,24 @@ class Mail(models.Model):
 
     message = None
 
+    @property
+    def from_domain(self):
+        return self.h_from.split('@')[-1].replace('>', '')
+
     def get_all_thirdparties(self):
-        return set(self.thirdparties)
+        return set(self.thirdparties.all())
+
+    def thirdparty_report(self):
+        eresources = self.eresource_set.all()
+        eresources_filtered = list(filter(lambda x: (x.host is not None) and (x.host.sector == 'a' or x.host.sector == 'unknown'), eresources))
+        result = {}
+        for e in eresources_filtered:
+            if e.host.name in result:
+                result[e.host.name].add(e.type)
+            else:
+                result[e.host.name] = set([e.type])
+
+        return result
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
