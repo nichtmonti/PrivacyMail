@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 from six.moves import range
-from OpenWPM.automation import CommandSequence, TaskManager
+#from OpenWPM.automation import CommandSequence, TaskManager
 import sys
 from random import randint
 import email
@@ -38,6 +38,7 @@ mails_without_unsubscribe_link = []
 logger = logging.getLogger(__name__)
 
 
+# A single Email as received by the server
 class Mail(models.Model):
     PROCESSING_STATES = Choices(
         ('UNPROCESSED', 'unprocessed'),
@@ -48,6 +49,7 @@ class Mail(models.Model):
         ('FAILED', 'failed')
     )
 
+    thirdparties = models.ManyToManyField('Thirdparty', through='Eresource')
     raw = models.TextField()
     message_id = models.TextField()
     body_plain = models.TextField(null=True, blank=True)
@@ -73,6 +75,9 @@ class Mail(models.Model):
     # Access by get_message
 
     message = None
+
+    def get_all_thirdparties(self):
+        return set(self.thirdparties)
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
@@ -1073,7 +1078,7 @@ class Mail(models.Model):
             return None
 
 
-
+# Any of the below listed resource types found within an Email
 class Eresource(models.Model):
     RESOURCE_TYPES = (
         ('a', 'Link'),
@@ -1091,7 +1096,7 @@ class Eresource(models.Model):
     request_headers = models.TextField(max_length=3000, null=True, blank=True)
     response_headers = models.TextField(max_length=3000, null=True, blank=True)
     mail = models.ForeignKey(Mail, on_delete=models.CASCADE)
-    host = models.ForeignKey('Thirdparty', null=True, on_delete=models.SET_NULL)
+    host = models.ForeignKey('Thirdparty' , null=True, on_delete=models.SET_NULL)
     diff_eresource = models.ForeignKey('self', related_name='diff', on_delete=models.SET_NULL, null=True)
     mail_leakage = models.TextField(null=True, blank=True)
     personalised = models.BooleanField(default=False)
@@ -1160,6 +1165,7 @@ class Eresource(models.Model):
         return False
 
 
+# hosts multiple eresources
 class Thirdparty(models.Model):
     TRACKER = "tracker"
     CDN = "cdn"
