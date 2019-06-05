@@ -33,6 +33,7 @@ import statistics
 import logging
 from django.db import connection
 from django_countries.fields import CountryField
+import json
 
 mails_without_unsubscribe_link = []
 logger = logging.getLogger(__name__)
@@ -93,7 +94,11 @@ class Mail(models.Model):
             else:
                 result[e.host.name] = set([e.type])
 
-        return result
+        # make dict contain lists instead of sets, since sets can't be easily transformed to json
+        for a, b in result.items():
+            result[a] = (list(b))
+
+        return json.dumps({self.from_domain : result})
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
