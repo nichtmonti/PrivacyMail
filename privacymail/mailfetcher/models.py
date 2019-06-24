@@ -98,6 +98,9 @@ class Mail(models.Model):
         for a, b in result.items():
             result[a] = (list(b))
 
+        # Add source
+        result['source']={'dataset':'privacymail', 'id':self.message_id}
+
         return json.dumps({self.from_domain : result})
 
     def __str__(self):
