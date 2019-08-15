@@ -33,6 +33,7 @@ import statistics
 import logging
 from django.db import connection
 from django_countries.fields import CountryField
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 
 mails_without_unsubscribe_link = []
@@ -88,20 +89,22 @@ class Mail(models.Model):
         eresources = self.eresource_set.all()
         eresources_filtered = list(filter(lambda x: (x.host is not None) and (x.host.sector == 'a' or x.host.sector == 'unknown'), eresources))
         result = {}
+        result['connections'] = {}
         for e in eresources_filtered:
-            if e.host.name in result:
-                result[e.host.name].add(e.type)
+            if e.host.name in result['connections']:
+                result['connections'][e.host.name].add(e.type)
             else:
-                result[e.host.name] = set([e.type])
+                result['connections'][e.host.name] = set([e.type])
 
         # make dict contain lists instead of sets, since sets can't be easily transformed to json
-        for a, b in result.items():
-            result[a] = (list(b))
+        for a, b in result['connections'].items():
+            result['connections'][a] = list(b)
 
         # Add source
-        result['source']={'dataset':'privacymail', 'id':self.message_id}
-
-        return json.dumps({self.from_domain : result})
+        result['source'] = {'dataset': 'privacymail', 'id': self.message_id}
+        result['raw_email'] = str(self.get_message()) # cast message to string for serialization
+        result['date'] = self.date_time
+        return json.dumps({self.from_domain: result}, cls=DjangoJSONEncoder)
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
