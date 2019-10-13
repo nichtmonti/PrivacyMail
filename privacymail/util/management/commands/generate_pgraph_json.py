@@ -1,6 +1,8 @@
 from mailfetcher.models import Mail
 from django.core.management.base import BaseCommand, CommandError
 import json
+from django.core.serializers.json import DjangoJSONEncoder
+
 
 
 
@@ -15,6 +17,9 @@ class Command(BaseCommand):
         if kwargs['end']-kwargs['start'] > 300:
             return "Nicht mehr als 300 auf einmal"
 
+        if kwargs['end'] > Mail.objects.all().count():
+            return "Es sind nur " + str(Mail.objects.all().count()) + 'Emails in der Datenbank'
+
         if kwargs['end'] - kwargs['end'] < 0:
             return 'start und ende vertauscht'
         # collect Mails
@@ -26,7 +31,7 @@ class Command(BaseCommand):
         for mail in mails:
             result.append(mail.thirdparty_report())
 
-        (print(json.dumps(result)))
+        (print(json.dumps(result,  cls=DjangoJSONEncoder)))
 
 
 
