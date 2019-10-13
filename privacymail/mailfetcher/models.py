@@ -33,7 +33,6 @@ import statistics
 import logging
 from django.db import connection
 from django_countries.fields import CountryField
-from django.core.serializers.json import DjangoJSONEncoder
 import json
 
 mails_without_unsubscribe_link = []
@@ -102,9 +101,8 @@ class Mail(models.Model):
 
         # Add source
         result['source'] = {'dataset': 'privacymail', 'id': self.message_id}
-        result['raw_email'] = str(self.get_message()) # cast message to string for serialization
         result['date'] = self.date_time
-        return json.dumps({self.from_domain: result}, cls=DjangoJSONEncoder)
+        return {self.from_domain: result}
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
