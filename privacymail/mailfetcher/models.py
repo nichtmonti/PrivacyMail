@@ -86,7 +86,7 @@ class Mail(models.Model):
 
     def thirdparty_report(self):
         eresources = self.eresource_set.all()
-        eresources_filtered = list(filter(lambda x: (x.host is not None) and (x.host.sector == 'a' or x.host.sector == 'unknown'), eresources))
+        eresources_filtered = list(filter(lambda x: (x.host is not None), eresources))  #remove connections where host is unknown
         result = {}
         result['connections'] = {}
         for e in eresources_filtered:
