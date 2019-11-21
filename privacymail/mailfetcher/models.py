@@ -34,6 +34,7 @@ import logging
 from django.db import connection
 from django_countries.fields import CountryField
 import json
+#import mailfetcher.analyser_cron
 
 mails_without_unsubscribe_link = []
 logger = logging.getLogger(__name__)
@@ -103,6 +104,35 @@ class Mail(models.Model):
         result['source'] = {'dataset': 'privacymail', 'id': self.message_id}
         result['date'] = self.date_time
         return {self.from_domain: result}
+
+    def get_chain(self):
+        chains = []
+        for e in self.eresource_set.all():
+            chains.append(get_url_chain(e))
+        chains = list(map(clean_chain, chains))
+        chains = list(filter(lambda x: x is not None, chains))
+        return chains
+
+    def _clean_chain(chain):
+        result = []
+        # get SLD from eresource
+        for x in chain:
+            if x.host is not None:
+                result.append(tldextract.extract(x.host.host).registered_domain)
+
+        # remove repeated redirects to self
+        for x in range(0, len(result) - 2):
+            if result[x] == result[x + 1] == result[x + 2]:
+                result[x] = None
+
+        result = list(filter(lambda x: x is not None, result))
+
+        # ignore chains with length of one
+        if len(result) < 2:
+            return None
+        return result
+
+
 
     def __str__(self):
         return "({})|{} from {}".format(self.message_id, self.h_subject, self.h_from)
