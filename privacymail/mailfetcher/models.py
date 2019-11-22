@@ -33,8 +33,6 @@ import statistics
 import logging
 from django.db import connection
 from django_countries.fields import CountryField
-import json
-#import mailfetcher.analyser_cron
 
 mails_without_unsubscribe_link = []
 logger = logging.getLogger(__name__)
@@ -105,32 +103,39 @@ class Mail(models.Model):
         result['date'] = self.date_time
         return {self.from_domain: result}
 
-    def get_chain(self):
-        chains = []
-        for e in self.eresource_set.all():
-            chains.append(get_url_chain(e))
-        chains = list(map(clean_chain, chains))
-        chains = list(filter(lambda x: x is not None, chains))
-        return chains
-
+    @staticmethod
     def _clean_chain(chain):
         result = []
-        # get SLD from eresource
+
+        # get SLD from eresources
         for x in chain:
             if x.host is not None:
                 result.append(tldextract.extract(x.host.host).registered_domain)
 
-        # remove repeated redirects to self
+        # change repeated redirects to self to None entries
         for x in range(0, len(result) - 2):
             if result[x] == result[x + 1] == result[x + 2]:
                 result[x] = None
-
-        result = list(filter(lambda x: x is not None, result))
+        # remove these None entries
+        result = list(filter(lambda z: z is not None, result))
 
         # ignore chains with length of one
         if len(result) < 2:
             return None
-        return result
+        # cast to tuple, because list is not hashable, which prevents filtering duplicate chains
+        return tuple(result)
+
+    def get_chains(self):
+        chains = []
+        for e in self.eresource_set.all():
+            chains.append(e.get_url_chain())
+
+        chains = list(map(Mail._clean_chain, chains))
+        # remove chains with length < 2 which were replaced with None in the _clean_chain func
+        chains = list(filter(lambda x: x is not None, chains))
+        return list(set(chains))
+
+
 
 
 
@@ -1218,6 +1223,27 @@ class Eresource(models.Model):
             except KeyError:
                 continue
         return False
+
+    def get_url_chain(self):
+        url_chain = []
+        url_chain.append(self)
+
+        # search for eresources in chain before given eresource
+        start_of_chain_reached = self.is_start_of_chain
+        while not start_of_chain_reached:
+            e = Eresource.objects.filter(redirects_to_channel_id=url_chain[0].channel_id)[0]
+            start_of_chain_reached = e.is_start_of_chain
+            url_chain.insert(0, e)
+        end_of_chain_reached = self.is_end_of_chain
+        while not end_of_chain_reached:
+            try:
+                e = Eresource.objects.filter(channel_id=url_chain[-1].redirects_to_channel_id)[0]
+                end_of_chain_reached = e.is_end_of_chain
+                url_chain.append(e)
+            # Should happen if the end of the chain has not been added, as it was a third party when clicking
+            except:
+                end_of_chain_reached = True
+        return url_chain
 
 
 # hosts multiple eresources
