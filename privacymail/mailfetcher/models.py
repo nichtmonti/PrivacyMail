@@ -101,6 +101,9 @@ class Mail(models.Model):
         # Add source
         result['source'] = {'dataset': 'privacymail', 'id': self.message_id}
         result['date'] = self.date_time
+
+        # Add chains
+        result['redirect_chains'] = self.get_chains()
         return {self.from_domain: result}
 
     @staticmethod
